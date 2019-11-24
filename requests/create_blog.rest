@@ -1,0 +1,9 @@
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+
+{
+    "title": "the fuk",
+    "author": "lmao",
+    "url": "www.evenbetter.com",
+    "likes": 40000000000000000000000000000
+}
