@@ -279,6 +279,238 @@ test('blog without a like noLike', async() => {
   expect(justPosted.likes).toBe(0)
 })
 
+describe('when there is initially one user at db', () => {
+  beforeEach(async () => {
+    await User.deleteMany({})
+    const saltRounds = 10
+    const passwordHash = await bcrypt.hash('sekret', saltRounds)
+
+    const user = new User({
+      username: 'root',
+      name: 'Rooty rootface',
+      passwordHash,
+    })
+
+    await user.save()
+  })
+
+  test('creation succeeds with a fresh username', async () => {
+    const usersAtStart = await listHelper.usersInDb()
+
+    const newUser = {
+      username: 'mluukkai',
+      name: 'Matti Luukkainen',
+      password: 'salainen',
+    }
+
+    await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(200)
+      .expect('Content-Type', /application\/json/)
+
+    const usersAtEnd = await listHelper.usersInDb()
+    expect(usersAtEnd.length).toBe(usersAtStart.length + 1)
+
+    const usernames = usersAtEnd.map(u => u.username)
+    expect(usernames).toContain(newUser.username)
+  })
+
+  test('password that is 3 characters or less will fail', async () => {
+    const usersAtStart = await listHelper.usersInDb()
+
+    const newUser = {
+      username: 'uniqueBoi',
+      name: 'fail please',
+      password: '333'
+    }
+
+    const result = await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(400)
+      .expect('Content-Type', /application\/json/)
+
+    expect(result.body.error).toContain('password must be longer than 3 characters')
+
+    const usersAtEnd = await listHelper.usersInDb()
+    expect(usersAtEnd.length).toBe(usersAtStart.length)
+  })
+
+  test('creation fails with proper statuscode and message if username already taken', async () => {
+    const usersAtStart = await listHelper.usersInDb()
+
+    const newUser = {
+      username: 'root',
+      name: 'Superuser',
+      password: 'salainen',
+    }
+
+    const result = await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(400)
+      .expect('Content-Type', /application\/json/)
+
+    expect(result.body.error).toContain('`username` to be unique')
+
+    const usersAtEnd = await listHelper.usersInDb()
+    expect(usersAtEnd.length).toBe(usersAtStart.length)
+  })
+
+  test('user creation fails with proper status code and message if username is blank', async () => {
+    const usersAtStart = await listHelper.usersInDb()
+
+    const newUser = {
+      name: 'Superuser',
+      password: 'salainen',
+    }
+
+    const result = await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(400)
+      .expect('Content-Type', /application\/json/)
+
+    expect(result.body.error).toContain('`username` is required')
+    logger.error(result.body.error)
+
+    const usersAtEnd = await listHelper.usersInDb()
+    expect(usersAtEnd.length).toBe(usersAtStart.length)
+  })
+
+  test('user creation fails with proper status code and message if password is blank', async () => {
+    const usersAtStart = await listHelper.usersInDb()
+
+    const newUser = {
+      username: 'uniqueDude',
+      name: 'Superuser'
+    }
+
+    const result = await api
+      .post('/api/users')
+      .send(newUser)
+      .expect(400)
+      .expect('Content-Type', /application\/json/)
+
+    expect(result.body.error).toContain('please enter a password')
+    logger.error(result.body.error)
+
+    const usersAtEnd = await listHelper.usersInDb()
+    expect(usersAtEnd.length).toBe(usersAtStart.length)
+  })
+})
+
+describe('deletion of a note', () => {
+
+  beforeEach(async () => {
+    await Blog.deleteMany({})
+    await User.deleteMany({})
+    const saltRounds = 10
+    let passwordHash = await bcrypt.hash('sekret', saltRounds)
+
+    const user = new User({
+      username: 'root',
+      name: 'Rooty rootface',
+      passwordHash,
+    })
+
+    await user.save()
+    passwordHash = await bcrypt.hash('passwordTwo', saltRounds)
+
+    const userTwo = new User({
+      username: 'userTwo',
+      name: 'Mr Two',
+      passwordHash
+    })
+
+    await userTwo.save()
+
+    const blogOne = {
+      title: 'title',
+      author: 'author',
+      url: 'com.dot',
+      likes: 1
+    }
+
+    const blogTwo = {
+      title: 'title Two',
+      author: 'author',
+      url: 'com.dot',
+      likes: 1
+    }
+
+    const userOneLogin = {
+      username: 'root',
+      password: 'sekret'
+    }
+    const userTwoLogin = {
+      username: 'userTwo',
+      password: 'passwordTwo'
+    }
+  })
+
+  test('add two new posts, two users, with with a user connected', async () => {
+    const user = {
+      username: 'root',
+      password: 'sekret'
+    }
+
+    const blog = {
+      title: 'title',
+      author: 'author',
+      url: 'com.dot',
+      likes: 1
+    }
+
+    const response = await api
+      .post('/api/login/')
+      .send(user)
+
+    const token = 'bearer ' + response.body.token
+
+    await api
+      .post('/api/blogs')
+      .set('Authorization', token)
+      .send(blog)
+      .expect(200)
+      .expect('Content-Type', /application\/json/)
+
+    const userTwo = {
+      username: 'userTwo',
+      password: 'password'
+    }
+
+    const blogTwo = {
+      title: 'title',
+      author: 'author',
+      url: 'com.dot',
+      likes: 1
+    }
+
+    const responseTwo = await api
+      .post('/api/login/')
+      .send(user)
+
+    const tokenTwo = 'bearer ' + response.body.token
+
+    await api
+      .post('/api/blogs')
+      .set('Authorization', tokenTwo)
+      .send(blog)
+      .expect(200)
+      .expect('Content-Type', /application\/json/)
+
+    const blogsAtEnd = await listHelper.blogsInDb()
+    const titles = blogsAtEnd.map(b => b.title)
+
+    expect(titles).toContainEqual(blog.title)
+    expect(titles).toContainEqual(blogTwo.title)
+  })
+})
+
+
+
 
 afterAll(() => {
   mongoose.connection.close()
