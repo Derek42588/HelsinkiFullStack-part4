@@ -7,6 +7,8 @@ const supertest = require('supertest')
 const app = require('../app')
 const api = supertest(app)
 const Blog = require('../models/blog')
+const User = require('../models/user')
+const bcrypt = require('bcrypt')
 
 beforeEach(async () => {
   await Blog.deleteMany({})
@@ -101,7 +103,7 @@ describe('when there are initially blogs saved', () => {
 
   test('blogs are returned as JSON', async () => {
     await api
-      .get('/api/blogs')
+      .get('/api/blogs/')
       .expect(200)
       .expect('Content-Type', /application\/json/)
   })
@@ -158,80 +160,6 @@ describe('viewing a specific note', () => {
 
 })
 
-describe('addition of a new note', () => {
-  test('succeeds with valid data', async () => {
-    const blogToPost = {
-      title: 'Scooby dooby doo where are you',
-      author: 'an author',
-      url: 'www.dopefucknblog.com',
-      likes: 1000
-    }
-
-    await api
-      .post('/api/blogs')
-      .send(blogToPost)
-      .expect(200)
-      .expect('Content-Type', /application\/json/)
-
-    const blogsAtEnd = await listHelper.blogsInDb()
-
-    const titles = blogsAtEnd.map(b => b.title)
-
-    expect(titles).toContainEqual(blogToPost.title)
-
-
-  })
-
-  test('fails with status 400 if data invalid -- no title', async () => {
-    const newBlog = {
-      author: 'an author',
-      url: 'www.dopefucknblog.com',
-      likes: 1000
-    }
-
-    await api
-      .post('/api/blogs/')
-      .send(newBlog)
-      .expect(400)
-  })
-  test('fails with status 400 if data invalid -- no url', async () => {
-    const newBlog = {
-      title: 'a dope title',
-      author: 'an author',
-      likes: 1000
-    }
-
-    await api
-      .post('/api/blogs/')
-      .send(newBlog)
-      .expect(400)
-  })
-
-})
-
-describe('delition of a note', () => {
-  test ('succeeds with status 204 if id is valud', async () => {
-    const blogsAtStart = await listHelper.blogsInDb()
-
-    const blogToDelete = blogsAtStart[0]
-
-    await api
-      .delete(`/api/blogs/${blogToDelete.id}`)
-      .expect(204)
-
-    const blogsAtEnd = await listHelper.blogsInDb()
-
-    expect(blogsAtEnd.length).toEqual(listHelper.initialBlogs.length -1)
-
-    const titles = blogsAtEnd.map(b => b.title)
-
-    expect(titles).not.toContain(blogToDelete.title)
-  })
-
-
-})
-
-
 test ('update an updateBlog', async () => {
   const blogsAtStart = await listHelper.blogsInDb()
 
@@ -257,26 +185,6 @@ test('whats the name of the idField', async() => {
 
   expect(blog.id).toBeDefined()
 
-})
-
-test('blog without a like noLike', async() => {
-  const blog = {
-    title: 'im a big fat loser',
-    author: 'mr fuckwad',
-    url: 'lm.ao'
-  }
-
-  await api
-    .post('/api/blogs')
-    .send(blog)
-    .expect(200)
-    .expect('Content-Type', /application\/json/)
-
-  const blogsAtEnd = await listHelper.blogsInDb()
-
-  const justPosted = _.find(blogsAtEnd, { 'author': blog.author })
-
-  expect(justPosted.likes).toBe(0)
 })
 
 describe('when there is initially one user at db', () => {
@@ -400,117 +308,6 @@ describe('when there is initially one user at db', () => {
     expect(usersAtEnd.length).toBe(usersAtStart.length)
   })
 })
-
-describe('deletion of a note', () => {
-
-  beforeEach(async () => {
-    await Blog.deleteMany({})
-    await User.deleteMany({})
-    const saltRounds = 10
-    let passwordHash = await bcrypt.hash('sekret', saltRounds)
-
-    const user = new User({
-      username: 'root',
-      name: 'Rooty rootface',
-      passwordHash,
-    })
-
-    await user.save()
-    passwordHash = await bcrypt.hash('passwordTwo', saltRounds)
-
-    const userTwo = new User({
-      username: 'userTwo',
-      name: 'Mr Two',
-      passwordHash
-    })
-
-    await userTwo.save()
-
-    const blogOne = {
-      title: 'title',
-      author: 'author',
-      url: 'com.dot',
-      likes: 1
-    }
-
-    const blogTwo = {
-      title: 'title Two',
-      author: 'author',
-      url: 'com.dot',
-      likes: 1
-    }
-
-    const userOneLogin = {
-      username: 'root',
-      password: 'sekret'
-    }
-    const userTwoLogin = {
-      username: 'userTwo',
-      password: 'passwordTwo'
-    }
-  })
-
-  test('add two new posts, two users, with with a user connected', async () => {
-    const user = {
-      username: 'root',
-      password: 'sekret'
-    }
-
-    const blog = {
-      title: 'title',
-      author: 'author',
-      url: 'com.dot',
-      likes: 1
-    }
-
-    const response = await api
-      .post('/api/login/')
-      .send(user)
-
-    const token = 'bearer ' + response.body.token
-
-    await api
-      .post('/api/blogs')
-      .set('Authorization', token)
-      .send(blog)
-      .expect(200)
-      .expect('Content-Type', /application\/json/)
-
-    const userTwo = {
-      username: 'userTwo',
-      password: 'password'
-    }
-
-    const blogTwo = {
-      title: 'title',
-      author: 'author',
-      url: 'com.dot',
-      likes: 1
-    }
-
-    const responseTwo = await api
-      .post('/api/login/')
-      .send(user)
-
-    const tokenTwo = 'bearer ' + response.body.token
-
-    await api
-      .post('/api/blogs')
-      .set('Authorization', tokenTwo)
-      .send(blog)
-      .expect(200)
-      .expect('Content-Type', /application\/json/)
-
-    const blogsAtEnd = await listHelper.blogsInDb()
-    const titles = blogsAtEnd.map(b => b.title)
-
-    expect(titles).toContainEqual(blog.title)
-    expect(titles).toContainEqual(blogTwo.title)
-  })
-})
-
-
-
 
 afterAll(() => {
   mongoose.connection.close()

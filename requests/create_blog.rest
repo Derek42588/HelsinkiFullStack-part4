@@ -1,9 +1,10 @@
-POST http://localhost:3003/api/blogs
+post http://localhost:3003/api/blogs
 Content-Type: application/json
+Authorization: bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbGV0ZUR1ZGUiLCJpZCI6IjVkZGY4YTZlYTZkNjhjMDNiMTJkYzc2NSIsImlhdCI6MTU3NDkzMzc5NX0.jASF3341M_tHdz53d3QmrD1OUKmhLdbvvQNZvrhsH_k
 
 {
-    "title": "the fuk",
-    "author": "lmao",
-    "url": "www.evenbetter.com",
-    "likes": 40000000000000000000000000000
+    "title": "Okay that didnt work for some reason",
+    "url": "www.DeleteDude.com",
+    "likes": 22,
+    "author": "Deletey McGee"
 }
